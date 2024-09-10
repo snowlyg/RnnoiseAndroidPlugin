@@ -24,9 +24,15 @@ export GOOS=$(go env | grep GOOS | cut -d "'" -f2)
 
 ./autogen.sh
 
+./configure
+make
+
+cp ./.libs/librnnoise.a ../../lib/librnnoise-linux-amd64.a
+
+cp ./libs
+
 for arm in armv7a aarch64; do
   printf "arm:$arm \n"
-
   if [ "$arm" == "armv7a" ]; then
     export ANDROID_ABI=armeabi-v7a
     export CC="$NDK_ROOT/$NDK_VERSION/toolchains/llvm/prebuilt/$GOOS-x86_64/bin/$arm-linux-androideabi29-clang"
