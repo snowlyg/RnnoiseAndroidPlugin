@@ -9,39 +9,35 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"unsafe"
 
 	"github.com/gen2brain/malgo"
 )
 
+var st *C.DenoiseState
+
 const FrameSize = 480
 
-func b2f32(bytes []byte) float32 {
-	bits := binary.LittleEndian.Uint32(bytes)
-	return math.Float32frombits(bits)
+type DenoiseState struct {
+	ds *C.DenoiseState
 }
 
-func f322b(f float32) []byte {
-	bits := math.Float32bits(f)
-	bytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(bytes, bits)
-	return bytes
+func NewDenoiseState() *DenoiseState {
+	return &DenoiseState{
+		ds: C.rnnoise_create(nil),
+	}
+
+}
+
+func (d *DenoiseState) DestoryDenoiseState() {
+	if d.ds != nil {
+		C.rnnoise_destroy(d.ds)
+	}
 }
 
 // Process
-func Process(sampleCount []byte) []byte {
-
-	if len(sampleCount) < FrameSize {
-		println("input < 480")
-		return sampleCount
-	}
-
-	// Create a new RNNoise state
-	st := C.rnnoise_create(nil)
-	// Destroy the RNNoise state
-	defer C.rnnoise_destroy(st)
+func (d *DenoiseState) Process(sampleCount []byte) []byte {
 
 	piBuffer := bytes.NewReader(sampleCount)
 
@@ -54,7 +50,7 @@ func Process(sampleCount []byte) []byte {
 		outTmp[i] = float32(inputTmp[i])
 	}
 
-	C.rnnoise_process_frame(st, (*C.float)(unsafe.Pointer(&outTmp[0])), (*C.float)(unsafe.Pointer(&outTmp[0])))
+	C.rnnoise_process_frame(d.ds, (*C.float)(unsafe.Pointer(&outTmp[0])), (*C.float)(unsafe.Pointer(&outTmp[0])))
 
 	for i := 0; i < FrameSize; i++ {
 		inputTmp[i] = int16(outTmp[i])
@@ -99,10 +95,12 @@ func ProcessFile(inputFile string) {
 	defer r.Close()
 	defer w.Close()
 
-	// Create a new RNNoise state
-	st := C.rnnoise_create(nil)
-	// Destroy the RNNoise state
-	defer C.rnnoise_destroy(st)
+	// // Create a new RNNoise state
+	// st := C.rnnoise_create(nil)
+	// // Destroy the RNNoise state
+	// defer C.rnnoise_destroy(st)
+	ds := NewDenoiseState()
+	defer ds.DestoryDenoiseState()
 
 	go func() {
 		for {
@@ -145,8 +143,7 @@ func ProcessFile(inputFile string) {
 			// }
 			// println("x", x)
 			// println("m", m)
-
-			out := Process(sampleCount[:x])
+			out := ds.Process(sampleCount[:x])
 
 			w.Write(out)
 		}
