@@ -56,3 +56,14 @@ for arm in armv7a aarch64; do
   cp librnnoise.a ../../lib/librnnoise-android-$arm.a
   cd ../
 done
+
+sudo cp build/windows/CMakeLists.txt ./src
+
+rm -rf build_windows
+mkdir build_windows
+cd build_windows
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+
+cp librnnoise.a ../../lib/libopus-windows-x64.a
+cd ../
