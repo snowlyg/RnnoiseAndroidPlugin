@@ -36,25 +36,16 @@ func (d *DenoiseState) DestoryDenoiseState() {
 	}
 }
 
-// Process
-func (d *DenoiseState) Process(sampleCount []byte) []byte {
+// ProcessByte
+func (d *DenoiseState) ProcessByte(sampleCount []byte) []byte {
 
 	piBuffer := bytes.NewReader(sampleCount)
 
 	inputTmp := make([]int16, FrameSize)
-	outTmp := make([]float32, FrameSize)
 
 	binaryRead(piBuffer, inputTmp)
 
-	for i := 0; i < FrameSize; i++ {
-		outTmp[i] = float32(inputTmp[i])
-	}
-
-	C.rnnoise_process_frame(d.ds, (*C.float)(unsafe.Pointer(&outTmp[0])), (*C.float)(unsafe.Pointer(&outTmp[0])))
-
-	for i := 0; i < FrameSize; i++ {
-		inputTmp[i] = int16(outTmp[i])
-	}
+	inputTmp = d.Process(inputTmp)
 
 	buf := new(bytes.Buffer)
 	binaryWrite(buf, inputTmp)
@@ -68,6 +59,26 @@ func (d *DenoiseState) Process(sampleCount []byte) []byte {
 
 	return out[:m]
 
+}
+
+// Process
+func (d *DenoiseState) Process(inputTmp []int16) []int16 {
+
+	tmp := make([]float32, FrameSize)
+	for i := 0; i < FrameSize; i++ {
+		tmp[i] = float32(inputTmp[i])
+	}
+
+	C.rnnoise_process_frame(d.ds, (*C.float)(unsafe.Pointer(&tmp[0])), (*C.float)(unsafe.Pointer(&tmp[0])))
+
+	for i := 0; i < FrameSize; i++ {
+		inputTmp[i] = int16(tmp[i])
+	}
+
+	buf := new(bytes.Buffer)
+	binaryWrite(buf, inputTmp)
+
+	return inputTmp
 }
 
 // ProcessFile
@@ -110,40 +121,7 @@ func ProcessFile(inputFile string) {
 				break
 			}
 
-			// piBuffer := bytes.NewReader(sampleCount[:x])
-
-			// inputTmp := make([]int16, FrameSize)
-			// outTmp := make([]float32, FrameSize)
-
-			// binaryRead(piBuffer, inputTmp)
-
-			// for i := 0; i < FrameSize; i++ {
-			// 	outTmp[i] = float32(inputTmp[i])
-			// }
-
-			// if len(inputTmp) < FrameSize {
-			// 	println("input < 480")
-			// 	break
-			// }
-
-			// C.rnnoise_process_frame(st, (*C.float)(unsafe.Pointer(&outTmp[0])), (*C.float)(unsafe.Pointer(&outTmp[0])))
-
-			// for i := 0; i < FrameSize; i++ {
-			// 	inputTmp[i] = int16(outTmp[i])
-			// }
-
-			// buf := new(bytes.Buffer)
-			// binaryWrite(buf, inputTmp)
-
-			// out := make([]byte, x)
-			// m, err := buf.Read(out)
-			// if err == io.EOF {
-			// 	println("EOF:", err.Error())
-			// 	break
-			// }
-			// println("x", x)
-			// println("m", m)
-			out := ds.Process(sampleCount[:x])
+			out := ds.ProcessByte(sampleCount[:x])
 
 			w.Write(out)
 		}
