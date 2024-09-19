@@ -25,6 +25,7 @@ type DenoiseState struct {
 
 func NewDenoiseState() *DenoiseState {
 	return &DenoiseState{
+		// ds: C.rnnoise_create(C.rnnoise_model_from_filename(C.CString("weights_blob.bin"))),
 		ds: C.rnnoise_create(nil),
 	}
 
@@ -78,8 +79,8 @@ func (d *DenoiseState) Process(inputTmp []int16) []int16 {
 	return inputTmp
 }
 
-// ProcessFile
-func ProcessFile(inputFile string) {
+// PlayFile
+func PlayFile(inputFile string) {
 	// Open input and output files
 	f1, err := os.Open(inputFile)
 	if err != nil {
@@ -103,10 +104,6 @@ func ProcessFile(inputFile string) {
 	defer r.Close()
 	defer w.Close()
 
-	// // Create a new RNNoise state
-	// st := C.rnnoise_create(nil)
-	// // Destroy the RNNoise state
-	// defer C.rnnoise_destroy(st)
 	ds := NewDenoiseState()
 	defer ds.DestoryDenoiseState()
 
