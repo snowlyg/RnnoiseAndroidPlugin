@@ -75,9 +75,6 @@ func (d *DenoiseState) Process(inputTmp []int16) []int16 {
 		inputTmp[i] = int16(tmp[i])
 	}
 
-	buf := new(bytes.Buffer)
-	binaryWrite(buf, inputTmp)
-
 	return inputTmp
 }
 
