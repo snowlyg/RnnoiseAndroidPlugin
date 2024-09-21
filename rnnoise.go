@@ -13,16 +13,19 @@ import (
 	"unsafe"
 
 	"github.com/gen2brain/malgo"
+	"github.com/youpy/go-wav"
 )
 
 var st *C.DenoiseState
 
 const FrameSize = 480
 
+// DenoiseState
 type DenoiseState struct {
 	ds *C.DenoiseState
 }
 
+// NewDenoiseState
 func NewDenoiseState() *DenoiseState {
 	return &DenoiseState{
 		// ds: C.rnnoise_create(C.rnnoise_model_from_filename(C.CString("weights_blob.bin"))),
@@ -31,46 +34,46 @@ func NewDenoiseState() *DenoiseState {
 
 }
 
+// DestoryDenoiseState
 func (d *DenoiseState) DestoryDenoiseState() {
 	if d.ds != nil {
 		C.rnnoise_destroy(d.ds)
 	}
 }
 
-// ProcessByte
-func (d *DenoiseState) ProcessByte(sampleCount []byte) []byte {
+// Denoise
+func (d *DenoiseState) Denoise(samples []byte) []byte {
+	fin := bytes.NewReader(samples)
 
-	piBuffer := bytes.NewReader(sampleCount)
+	buf := make([]int16, FrameSize)
+	binary.Read(fin, binary.BigEndian, buf)
 
-	inputTmp := make([]int16, FrameSize)
+	buf = d.DenoiseInt16(buf)
 
-	binaryRead(piBuffer, inputTmp)
+	fout := new(bytes.Buffer)
+	binary.Write(fout, binary.LittleEndian, buf)
 
-	inputTmp = d.Process(inputTmp)
+	out := make([]byte, len(samples))
+	m, _ := fout.Read(out)
 
-	buf := new(bytes.Buffer)
-	binaryWrite(buf, inputTmp)
+	denoise := make([]byte, m)
+	copy(denoise, out[:m])
 
-	out := make([]byte, len(sampleCount))
-	m, err := buf.Read(out)
-	if err == io.EOF {
-		println("EOF:", err.Error())
-		// break
-	}
-
-	return out[:m]
-
+	return denoise
 }
 
 // Process
-func (d *DenoiseState) Process(inputTmp []int16) []int16 {
-
+func (d *DenoiseState) DenoiseInt16(inputTmp []int16) []int16 {
 	tmp := make([]float32, FrameSize)
 	for i := 0; i < FrameSize; i++ {
 		tmp[i] = float32(inputTmp[i])
 	}
 
 	C.rnnoise_process_frame(d.ds, (*C.float)(unsafe.Pointer(&tmp[0])), (*C.float)(unsafe.Pointer(&tmp[0])))
+
+	if len(tmp) < FrameSize {
+		log.Printf("rnnoise_process_frame return len is %d < %d \n\t", len(tmp), FrameSize)
+	}
 
 	for i := 0; i < FrameSize; i++ {
 		inputTmp[i] = int16(tmp[i])
@@ -87,18 +90,24 @@ func PlayFile(inputFile string) {
 		log.Fatalf("Failed to open input file: %v", err)
 	}
 	defer f1.Close()
+	reader := wav.NewReader(f1)
+	format, err := reader.Format()
+	if err != nil {
+		log.Fatalf("Failed to get file Format: %v", err)
+	}
+
+	log.Printf("%+v\t\n", format)
 
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
 	}
 	defer func() {
 		_ = ctx.Uninit()
 		ctx.Free()
 	}()
 
-	sampleCount := make([]byte, FrameSize*2)
+	sampleSize := make([]byte, FrameSize*2)
 
 	r, w := io.Pipe()
 	defer r.Close()
@@ -109,22 +118,19 @@ func PlayFile(inputFile string) {
 
 	go func() {
 		for {
-			x, err := f1.Read(sampleCount)
+			x, err := f1.Read(sampleSize)
 			if err == io.EOF {
 				println("EOF:", err.Error())
 				break
 			}
-
-			out := ds.ProcessByte(sampleCount[:x])
-
-			w.Write(out)
+			w.Write(ds.Denoise(sampleSize[:x]))
 		}
 	}()
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
 	deviceConfig.Playback.Format = malgo.FormatS16
-	deviceConfig.Playback.Channels = 2
-	deviceConfig.SampleRate = 48000
+	deviceConfig.Playback.Channels = uint32(format.NumChannels)
+	deviceConfig.SampleRate = format.SampleRate
 	deviceConfig.Alsa.NoMMap = 1
 
 	// This is the function that's used for sending more data to the device for playback.
@@ -152,12 +158,24 @@ func PlayFile(inputFile string) {
 	fmt.Scanln()
 }
 
-// binaryRead reads a frame of int16 samples from the file.
-func binaryRead(f io.Reader, buf []int16) error {
-	return binary.Read(f, binary.LittleEndian, buf)
-}
+// // Int16ToByteSlice
+// func Int16ToByteSlice(in []int16) []byte {
+// 	buf := new(bytes.Buffer)
+// 	binary.Write(buf, binary.LittleEndian, in)
 
-// binaryWrite writes a frame of int16 samples to the file.
-func binaryWrite(f io.Writer, buf []int16) error {
-	return binary.Write(f, binary.LittleEndian, buf)
-}
+// 	tmp := make([]byte, len(in))
+// 	m, _ := buf.Read(tmp)
+
+// 	out := make([]byte, m)
+// 	copy(out, tmp[:m])
+
+// 	return out
+// }
+
+// // ByteSliceToInt16
+// func ByteSliceToInt16(in []byte) []int16 {
+// 	fin := bytes.NewReader(in)
+// 	buf := make([]int16, FrameSize)
+// 	binary.Read(fin, binary.BigEndian, buf)
+// 	return buf
+// }

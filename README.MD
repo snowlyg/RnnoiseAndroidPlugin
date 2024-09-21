@@ -8,10 +8,10 @@ git clone https://github.com/snowlyg/RnnoiseAndroidPlugin.git --depth=1
 cd RnnoiseAndroidPlugin
 ./make.sh
 
-cd example
+cd example & \
 go build -o denoise main.go
 
-./denoise origin.wav denoised.wav
+./denoise origin.wav
 ```
 
 
@@ -35,3 +35,4 @@ ffmpeg -i <infile> -ac 2 -f wav <outfile>
   cmake -DCMAKE_BUILD_TYPE=Release ..
   make
 ```
+
