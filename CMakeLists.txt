@@ -10,6 +10,9 @@ set(CMAKE_SYSTEM_NAME Android)
 set(CMAKE_C_COMPILER   $ENV{CC})
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 
+set(CMAKE_CXX_FLAGS "-std=c++17 -DANDROID -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
+
 
 # Specify the Android platform and architecture
 set(ANDROID_ABI  $ENV{ANDROID_ABI})  # Specify your desired ABI, e.g., armeabi-v7a, arm64-v8a, x86, etc.
@@ -32,8 +35,13 @@ add_definitions(-DRNNOISE_BUILD)
 # Compile the library
 add_library(rnnoise ${SOURCES})
 
-# Specify the target ABI for the library
-set_target_properties(rnnoise PROPERTIES ANDROID_ABI ${ANDROID_ABI})
+# Set compiler flags if needed
+target_compile_options(rnnoise PUBLIC
+        -Wall -finline-functions -fno-strict-aliasing -O3 -frtti -Wno-unknown-pragmas -funroll-loops -fexceptions -fno-math-errno)
+
+# Set target properties
+set_target_properties(rnnoise PROPERTIES
+    ANDROID_ARM_MODE arm)
 
 # Include dirs
 target_include_directories(rnnoise PUBLIC
@@ -41,19 +49,8 @@ target_include_directories(rnnoise PUBLIC
         $<INSTALL_INTERFACE:include>
         PRIVATE src)
 
-# Set install directories
-include(GNUInstallDirs)
-
-# Install the library
-install(TARGETS rnnoise EXPORT rnnoise_target
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    DESTINATION "include")
-
-install(EXPORT rnnoise_target
-    FILE rnnoiseConfig.cmake
-    DESTINATION lib/cmake/rnnoise
-)
+# Set include directories, sử dụng biến NDK_PATH
+target_include_directories(rnnoise PUBLIC
+        include
+       $ENV{NDK_ROOT}/$ENV{NDK_VERSION}/sysroot/usr/include
+       $ENV{NDK_ROOT}/$ENV{NDK_VERSION}/sysroot/usr/include/arm-linux-androideabi) 
