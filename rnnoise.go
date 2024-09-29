@@ -46,7 +46,7 @@ func (d *DenoiseState) Denoise(samples []byte) []byte {
 	fin := bytes.NewReader(samples)
 
 	buf := make([]int16, FrameSize)
-	binary.Read(fin, binary.BigEndian, buf)
+	binary.Read(fin, binary.LittleEndian, buf)
 
 	buf = d.DenoiseInt16(buf)
 
@@ -93,7 +93,7 @@ func PlayFile(inputFile string) {
 	reader := wav.NewReader(f1)
 	format, err := reader.Format()
 	if err != nil {
-		log.Fatalf("Failed to get file Format: %v", err)
+		log.Fatalf("Failed to get file Format: %v", err.Error())
 	}
 
 	log.Printf("%+v\t\n", format)
@@ -123,7 +123,9 @@ func PlayFile(inputFile string) {
 				println("EOF:", err.Error())
 				break
 			}
-			w.Write(ds.Denoise(sampleSize[:x]))
+			// data := sampleSize[:x]
+			data := ds.Denoise(sampleSize[:x])
+			w.Write(data)
 		}
 	}()
 
@@ -157,25 +159,3 @@ func PlayFile(inputFile string) {
 	fmt.Println("Press Enter to quit...")
 	fmt.Scanln()
 }
-
-// // Int16ToByteSlice
-// func Int16ToByteSlice(in []int16) []byte {
-// 	buf := new(bytes.Buffer)
-// 	binary.Write(buf, binary.LittleEndian, in)
-
-// 	tmp := make([]byte, len(in))
-// 	m, _ := buf.Read(tmp)
-
-// 	out := make([]byte, m)
-// 	copy(out, tmp[:m])
-
-// 	return out
-// }
-
-// // ByteSliceToInt16
-// func ByteSliceToInt16(in []byte) []int16 {
-// 	fin := bytes.NewReader(in)
-// 	buf := make([]int16, FrameSize)
-// 	binary.Read(fin, binary.BigEndian, buf)
-// 	return buf
-// }

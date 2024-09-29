@@ -15,10 +15,12 @@ cd $src_path
 # $src_path/src/dump_features.c
 # sed -i 's/#include "src\/_kiss_fft_guts.h"/#include "_kiss_fft_guts.h"/g' $src_path/src/dump_features.c
 
-cat $src_path/src/dump_features.c | grep "_kiss_fft_guts.h"
+# cat $src_path/src/dump_features.c | grep "_kiss_fft_guts.h"
 
 ./autogen.sh
 ./configure
 make
 
-cp $src_path/.libs/librnnoise.a $current/libs/librnnoise-linux-amd64.a
+export GOOS=$(go env | grep GOOS | cut -d "'" -f2)
+
+cp $src_path/.libs/librnnoise.a $current/libs/librnnoise-$GOOS-arm64.a
